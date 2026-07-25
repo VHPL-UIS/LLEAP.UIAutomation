@@ -1,6 +1,5 @@
 ﻿using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Capturing;
-using NUnit.Framework;
 using Serilog;
 
 namespace LLEAP.UITests.Helpers;
