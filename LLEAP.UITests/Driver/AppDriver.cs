@@ -1,5 +1,4 @@
-﻿using FlaUI.Core;
-using FlaUI.Core.AutomationElements;
+﻿using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
 using LLEAP.UITests.Configuration;
 
@@ -20,27 +19,53 @@ public sealed class AppDriver : IDisposable
         HomeWindow = _homeApp.GetMainWindow(Automation, TimeSpan.FromSeconds(_settings.Timeouts.DefaultTimeoutSeconds));
         return HomeWindow;
     }
-    public Window AttachToInstructorApp(string windowTitle = "LLEAP")
+    public Window AttachToInstructorApp(string windowTitle = "LLEAP", int? timeoutSeconds = null)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(_settings.Timeouts.DefaultTimeoutSeconds);
+        var effectiveTimeout = timeoutSeconds ?? _settings.Timeouts.DefaultTimeoutSeconds;
+        var deadline = DateTime.UtcNow.AddSeconds(effectiveTimeout);
+        var seenTitles = new HashSet<string>();
         while (DateTime.UtcNow < deadline)
         {
-            var desktop = Automation.GetDesktop();
-            var match = desktop.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.Window));
-            var allWindows = desktop.FindAllChildren();
-            foreach (var w in allWindows)
+            try
             {
-                if (w.Name.Contains(windowTitle, StringComparison.OrdinalIgnoreCase))
+                var desktop = Automation.GetDesktop();
+                //var match = desktop.FindFirstChild(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.Window));
+                var allWindows = desktop.FindAllChildren();
+                foreach (var w in allWindows)
                 {
-                    _instructorApp = FlaUI.Core.Application.Attach(w.Properties.ProcessId.Value);
-                    InstructorWindow = _instructorApp.GetMainWindow(Automation, TimeSpan.FromSeconds(_settings.Timeouts.DefaultTimeoutSeconds));
-                    return InstructorWindow;
+                    string? title;
+                    try
+                    {
+                        title = w.Name;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(title))
+                    {
+                        seenTitles.Add(title);
+                    }
+
+                    if (!string.IsNullOrEmpty(title) && title.Contains(windowTitle, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _instructorApp = FlaUI.Core.Application.Attach(w.Properties.ProcessId.Value);
+                        InstructorWindow = _instructorApp.GetMainWindow(Automation, TimeSpan.FromSeconds(_settings.Timeouts.DefaultTimeoutSeconds));
+                        return InstructorWindow;
+                    }
                 }
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                //
             }
             Thread.Sleep(500);
         }
 
-        throw new TimeoutException($"Window containing '{windowTitle}' did not apear within " + $"{_settings.Timeouts.DefaultTimeoutSeconds} seconds.");
+        throw new TimeoutException(
+            $"Window containing '{windowTitle}' did not apear within " + $"{_settings.Timeouts.DefaultTimeoutSeconds} seconds." +
+            $"Top-level window titles seen during polling: [{string.Join(", ", seenTitles)}]");
     }
 
     public bool IsInstructorAppClosed => _instructorApp?.HasExited ?? true;

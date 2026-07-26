@@ -11,6 +11,8 @@ public class InstructorAppPage : BasePage
 
     public void SkipLicenseActivation()
         => ClickBy(InstructorLocators.License.AddLicenseLaterButton);
+    public void SelectLocalComputerSimulator()
+        => ClickBy(InstructorLocators.SimulatorSelection.LocalComputerTile);
     public void SelectSimMan3GPlus()
         => ClickBy(InstructorLocators.SimulatorSelection.SimMan3GPlusButton);
     public void SkipDebriefingSystem()
