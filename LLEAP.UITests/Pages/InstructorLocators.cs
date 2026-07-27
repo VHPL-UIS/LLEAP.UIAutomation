@@ -18,9 +18,10 @@ public static class InstructorLocators
     {
         public static readonly Locator InternationalPreferencesButton = Locator.ByName("International user preferences");
         public static readonly Locator ManualModeButton = Locator.ByName("Manual Mode");
-        public static readonly Locator ThemesDropdown = Locator.ByName("Themes");
+        //public static readonly Locator ThemesDropdown = Locator.ByName("Themes");
+        public static readonly Locator ThemesDropdown = Locator.ById("HeaderSite", "Themes");
         public static readonly Locator HealthyPatientTheme = Locator.ByName("Healthy patient");
-        public static readonly Locator OkButton = Locator.ByName("Ok");
-        public static readonly Locator StartSessionButton = Locator.ByName("Start session");
+        public static readonly Locator OkButton = Locator.ById("OKButton", "ok");
+        //public static readonly Locator StartSessionButton = Locator.ByName("Start session");
     }
 }

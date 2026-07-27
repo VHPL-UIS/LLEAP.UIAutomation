@@ -64,7 +64,7 @@ public abstract class BasePage
         var result = Retry.WhileNull(
             () => RootWindow.FindFirstDescendant(CF.ByName(name)),
             timeout: TimeSpan.FromSeconds(timeoutSeconds),
-            interval: TimeSpan.FromMicroseconds(300),
+            interval: TimeSpan.FromMilliseconds(300),
             throwOnTimeout: false,
             ignoreException: true);
         return result.Success ? result.Result : null;
@@ -84,13 +84,28 @@ public abstract class BasePage
     }
 
     protected void ClickByName(string name)
-        => WaitForElementByName(name);
+        => WaitForElementByName(name).Click();
 
     protected void ClickById(string automationId)
-        => WaitForElementById(automationId);
+        => WaitForElementById(automationId).Click();
 
     protected void ClickBy(Locator locator)
-        => WaitFor(locator).Click();
+    {
+        var element = WaitFor(locator);
+        Retry.WhileFalse(
+            () => element.IsEnabled && !element.IsOffscreen,
+            timeout: TimeSpan.FromSeconds(TimeoutSeconds),
+            interval: TimeSpan.FromMilliseconds(200));
+        //RootWindow.SetForeground();
+        if (element.Patterns.Invoke.IsSupported)
+        {
+            element.Patterns.Invoke.Pattern.Invoke();
+        }
+        else
+        { 
+            element.Click();
+        }
+    }
 
     protected void ConfirmDialog(Locator confirmButton)
         => WaitFor(confirmButton).Click();
@@ -100,4 +115,7 @@ public abstract class BasePage
         WaitFor(trigger).Click();
         WaitFor(item).Click();
     }
+
+    public int ProcessId => RootWindow.Properties.ProcessId.ValueOrDefault;
+    public string WindowTitle => RootWindow.Title;
 }

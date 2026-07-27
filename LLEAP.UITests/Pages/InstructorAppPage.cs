@@ -21,12 +21,14 @@ public class InstructorAppPage : BasePage
         => ClickBy(InstructorLocators.SessionSetup.InternationalPreferencesButton);
     public void SelectManualMode()
         => ClickBy(InstructorLocators.SessionSetup.ManualModeButton);
+    public void SelectThemeButton()
+        => ClickBy(InstructorLocators.SessionSetup.ThemesDropdown);
     public void SelectTheme(Locator themeLocator)
         => SelectFromDropdown(InstructorLocators.SessionSetup.ThemesDropdown, themeLocator);
     public void Confirm()
         => ConfirmDialog(InstructorLocators.SessionSetup.OkButton);
-    public void StartSimulation()
-        => ClickBy(InstructorLocators.SessionSetup.StartSessionButton);
+    //public void StartSimulation()
+    //    => ClickBy(InstructorLocators.SessionSetup.StartSessionButton);
     public void Maximize()
         => RootWindow.Patterns.Window.Pattern.SetWindowVisualState(FlaUI.Core.Definitions.WindowVisualState.Maximized);
     public void Exit()
