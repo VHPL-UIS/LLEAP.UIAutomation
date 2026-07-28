@@ -79,7 +79,7 @@ jobs:
 
       - name: Create a readable test summary
         if: always()
-        shell: pwsh
+        shell: powershell
         env:
           SELECTED_TESTS: ${{ inputs.test_selection || 'All tests' }}
           TEST1_OUTCOME: ${{ steps.test1.outcome }}
