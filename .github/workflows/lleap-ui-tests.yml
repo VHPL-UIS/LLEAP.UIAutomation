@@ -1,10 +1,23 @@
 name: LLEAP UI Tests
 
+run-name: LLEAP UI tests - ${{ inputs.test_selection || 'All tests' }} - ${{ github.actor }}
+
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * 1-5"
-  
+    inputs:
+      test_selection:
+        description: Which LLEAP test should be executed?
+        required: true
+        default: All tests
+        type: choice
+        options:
+          - All tests
+          - Virtual SimMan session
+          - Collect client log files
+
 permissions:
   contents: read
 
@@ -14,22 +27,123 @@ concurrency:
 
 jobs:
   ui-tests:
+    name: Run LLEAP desktop tests
     runs-on: [self-hosted, Windows, X64, lleap-ui]
-    timeout-minutes: 30
-    
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 40
 
-      - uses: actions/setup-dotnet@v4
+    steps:
+      - name: Prepare test files
+        uses: actions/checkout@v6
+
+      - name: Prepare .NET 10
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
-      
-      - name: Upload test evidence
+          dotnet-version: 10.0.x
+
+      - name: Restore required packages
+        run: dotnet restore LLEAP.UITests.slnx
+
+      - name: Build the test solution
+        run: >
+          dotnet build LLEAP.UITests.slnx
+          --configuration Release
+          --no-restore
+
+      - name: Test 1 - Run a Virtual SimMan session
+        id: test1
+        if: >
+          github.event_name != 'workflow_dispatch' ||
+          inputs.test_selection == 'All tests' ||
+          inputs.test_selection == 'Virtual SimMan session'
+        run: >
+          dotnet test LLEAP.UITests/LLEAP.UITests.csproj
+          --configuration Release
+          --no-build
+          --filter "FullyQualifiedName~LLEAP.UITests.Tests.Test1_VirtualSimManSession"
+          --logger "trx;LogFileName=test1.trx"
+          --results-directory "TestResults/Test1"
+
+      - name: Test 2 - Collect client log files
+        id: test2
+        if: >
+          github.event_name != 'workflow_dispatch' ||
+          inputs.test_selection == 'All tests' ||
+          inputs.test_selection == 'Collect client log files'
+        run: >
+          dotnet test LLEAP.UITests/LLEAP.UITests.csproj
+          --configuration Release
+          --no-build
+          --filter "FullyQualifiedName~LLEAP.UITests.Tests.Test2_CollectClientLogs"
+          --logger "trx;LogFileName=test2.trx"
+          --results-directory "TestResults/Test2"
+
+      - name: Create a readable test summary
+        if: always()
+        shell: pwsh
+        env:
+          SELECTED_TESTS: ${{ inputs.test_selection || 'All tests' }}
+          TEST1_OUTCOME: ${{ steps.test1.outcome }}
+          TEST2_OUTCOME: ${{ steps.test2.outcome }}
+        run: |
+          function Format-TestOutcome(
+              [string] $testOutcome,
+              [bool] $testWasSelected
+          ) {
+              switch ($testOutcome) {
+                  "success" { return "Passed" }
+                  "failure" { return "Failed" }
+                  "cancelled" { return "Cancelled" }
+                  "skipped" {
+                      if ($testWasSelected) {
+                          return "Blocked by an earlier failure"
+                      }
+
+                      return "Not selected"
+                  }
+                  default { return "Not run" }
+              }
+          }
+
+          $test1WasSelected =
+              $env:SELECTED_TESTS -in @(
+                  "All tests",
+                  "Virtual SimMan session"
+              )
+          $test2WasSelected =
+              $env:SELECTED_TESTS -in @(
+                  "All tests",
+                  "Collect client log files"
+              )
+          $test1Result = Format-TestOutcome `
+              $env:TEST1_OUTCOME `
+              $test1WasSelected
+          $test2Result = Format-TestOutcome `
+              $env:TEST2_OUTCOME `
+              $test2WasSelected
+          $summary = @"
+          # LLEAP UI test results
+
+          **Requested tests:** $env:SELECTED_TESTS
+
+          | Test | Result |
+          | --- | --- |
+          | Virtual SimMan session | $test1Result |
+          | Collect client log files | $test2Result |
+
+          Screenshots, detailed logs, and TRX reports are available in the
+          **LLEAP UI evidence** artifact below.
+          "@
+
+          Add-Content `
+              -Path $env:GITHUB_STEP_SUMMARY `
+              -Value $summary `
+              -Encoding utf8
+
+      - name: Upload screenshots, logs, and test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lleap-ui-results-${{github.run_number}}
-          path: | 
-            **/TestResults/**
-          if-no-file-found: warn
+          name: lleap-ui-evidence-${{ github.run_number }}-${{ github.run_attempt }}
+          path: "**/TestResults/**"
+          if-no-files-found: warn
           retention-days: 14
