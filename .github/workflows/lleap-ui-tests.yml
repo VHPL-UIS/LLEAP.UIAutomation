@@ -1,0 +1,37 @@
+name: LLEAP UI Tests
+
+on:
+  push:
+  pull_request:
+  # workflow_dispatch:
+  # schedule:
+  #  - cron: "0 3 * * 1-5"
+  
+permissions:
+  contents: read
+
+concurrency:
+  group: lleap-ui-machine
+  cancel-in-progress: false
+
+jobs:
+  ui-tests:
+    runs-on: [self-hosted, Windows, X64, lleap-ui]
+    itmeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lleap-ui-results-${{github.run_number}}
+          path: | 
+            **/TestResults/**
+          if-no-file-found: warn
+          retention-days: 14
