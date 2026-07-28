@@ -4,6 +4,7 @@ using LLEAP.UITests.Configuration;
 using Serilog;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 
 namespace LLEAP.UITests.Drivers;
 
@@ -136,6 +137,92 @@ public sealed class AppDriver : IDisposable
 
     public bool IsInstructorAppClosed => _instructorApp?.HasExited ?? true;
 
+    public bool IsCurrentProcessElevated
+    {
+        get
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(
+                WindowsBuiltInRole.Administrator);
+        }
+    }
+
+    public string DescribeVisibleDesktopWindows()
+    {
+        var descriptions = new List<string>();
+
+        try
+        {
+            var windows = Automation.GetDesktop().FindAllChildren(
+                cf => cf.ByControlType(
+                    FlaUI.Core.Definitions.ControlType.Window));
+
+            foreach (var window in windows)
+            {
+                try
+                {
+                    if (window.IsOffscreen)
+                    {
+                        continue;
+                    }
+
+                    var descendantNames = new HashSet<string>(
+                        StringComparer.OrdinalIgnoreCase);
+                    foreach (var descendant in window.FindAllDescendants())
+                    {
+                        try
+                        {
+                            var name = descendant.Name?.Trim();
+                            if (!string.IsNullOrWhiteSpace(name))
+                            {
+                                descendantNames.Add(name);
+                            }
+                        }
+                        catch (Exception ex) when (
+                            ex is COMException or
+                                InvalidOperationException or
+                                FlaUI.Core.Exceptions.FlaUIException)
+                        {
+                            // A descendant changed during enumeration.
+                        }
+
+                        if (descendantNames.Count >= 30)
+                        {
+                            break;
+                        }
+                    }
+
+                    descriptions.Add(
+                        $"Title='{window.Name}', " +
+                        $"PID={window.Properties.ProcessId.ValueOrDefault}, " +
+                        $"Class='{window.Properties.ClassName.ValueOrDefault}', " +
+                        $"Text=[{string.Join("; ", descendantNames)}]");
+                }
+                catch (Exception ex) when (
+                    ex is COMException or
+                        InvalidOperationException or
+                        FlaUI.Core.Exceptions.FlaUIException)
+                {
+                    // A top-level window changed during enumeration.
+                }
+            }
+        }
+        catch (Exception ex) when (
+            ex is COMException or
+                InvalidOperationException or
+                FlaUI.Core.Exceptions.FlaUIException)
+        {
+            return
+                $"<desktop enumeration failed: {ex.GetType().Name}: " +
+                $"{ex.Message}>";
+        }
+
+        return descriptions.Count == 0
+            ? "<no visible top-level windows>"
+            : string.Join(Environment.NewLine, descriptions);
+    }
+
     public bool WaitForTopLevelWindowToClose(
         string exactTitle,
         int? expectedProcessId = null,
@@ -165,11 +252,11 @@ public sealed class AppDriver : IDisposable
                     }
                     catch (COMException)
                     {
-                        // A top level window may disapear during enumeration.
+                        // A top-level window may disappear during enumeration.
                     }
                     catch (InvalidOperationException)
                     {
-                        // A prorcess/window may change during enumeration.
+                        // A process/window may change during enumeration.
                     }
                 }
 
@@ -180,7 +267,7 @@ public sealed class AppDriver : IDisposable
             }
             catch (COMException)
             {
-                // UI automation may fail while the window is closing.
+                // UI Automation can transiently fail while the window is closing.
             }
 
             Thread.Sleep(200);

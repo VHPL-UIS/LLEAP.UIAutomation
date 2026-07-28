@@ -45,6 +45,10 @@ public class PathsSettings
     public string SimulationHomeExePath { get; set; } = @"C:\\Program Files (x86)\\Laerdal Medical\\Laerdal Simulation Home\\LaunchPortal.exe";
     public string ScreenshotDirectory { get; set; } = @"TestResults\\Screenshots";
     public string LogDirectory { get; set; } = @"TestResults\\Logs";
+    public string[] ClientLogSearchDirectories { get; set; } = [];
+    public string ClientLogArtifactPattern { get; set; } = "*";
+    public bool ClientLogIncludeSubdirectories { get; set; } = true;
+    public string ClientArtifactPathHint { get; set; } = "Laerdal Report Zipped";
 }
 
 public class LanguageSettings
