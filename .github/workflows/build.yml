@@ -21,6 +21,4 @@ jobs:
       - run: dotnet restore LLEAP.UITests.slnx
 
       - run: |
-          dotnet build LLEAP.UITests.slnx \
-            --configuration Release \
-            --no-restore
+          dotnet build LLEAP.UITests.slnx --configuration Release --no-restore
