@@ -287,18 +287,55 @@ public class SessionPage : BasePage
             lastObservedPercent);
     }
 
+    //public void AdjustHeartRate(int bpm)
+    //{
+    //    ClickBy(PatientMonitorLocators.HrValueLabel);
+    //    var hrInput = TryFind(PatientMonitorLocators.HrInputField, timeoutSeconds: 5)
+    //        ?? WaitFor(PatientMonitorLocators.HrInputField);
+    //    hrInput.AsTextBox().Enter(bpm.ToString());
+    //    ClickBy(CommonLocators.OkButton);
+
+    //    //WaitUntil(
+    //    //    () => GetDisplayedHeartRateBpm() == bpm,
+    //    //    timeoutSeconds: 10,
+    //    //    errorMessage: $"Displayed heart rate did not change to {bpm} bpm.");
+    //}
+
     public void AdjustHeartRate(int bpm)
     {
         ClickBy(PatientMonitorLocators.HrValueLabel);
-        var hrInput = TryFind(PatientMonitorLocators.HrInputField, timeoutSeconds: 5)
-            ?? WaitFor(PatientMonitorLocators.HrInputField);
+
+        var dialog = WaitFor(PatientMonitorLocators.SetHeartRateDialog);
+
+        var hrInput = dialog.FindFirstDescendant(
+            CF.ByAutomationId(
+                PatientMonitorLocators.HrInputField.AutomationId!))
+            ?? throw new InvalidOperationException(
+                "Heart-rate input was not found inside the Set Heart Rate dialog.");
+
         hrInput.AsTextBox().Enter(bpm.ToString());
-        ClickBy(CommonLocators.OkButton);
+
+        var okButton = dialog.FindFirstDescendant(
+            CF.ByName(CommonLocators.OkButton.Name!)
+                .And(CF.ByControlType(
+                    FlaUI.Core.Definitions.ControlType.Button)))
+            ?? throw new InvalidOperationException(
+                "OK button was not found inside the Set Heart Rate dialog.");
+
+        okButton.Click();
+
+        WaitUntil(
+            () => RootWindow.FindFirstDescendant(
+                CF.ByName("Set Heart Rate")) == null,
+            timeoutSeconds: 10,
+            errorMessage:
+                "Set Heart Rate dialog remained open after clicking OK.");
 
         //WaitUntil(
         //    () => GetDisplayedHeartRateBpm() == bpm,
         //    timeoutSeconds: 10,
-        //    errorMessage: $"Displayed heart rate did not change to {bpm} bpm.");
+        //    errorMessage:
+        //        $"Patient monitor did not display {bpm} bpm after confirmation.");
     }
 
     public void PlayVoice(Locator voiceLocator)
@@ -960,11 +997,61 @@ public class SessionPage : BasePage
             or NotSupportedException
             or FlaUI.Core.Exceptions.FlaUIException;
 
-    public int GetDisplayedHeartRateBpm()
+    //public int GetDisplayedHeartRateBpm()
+    //{
+    //    var label = WaitFor(PatientMonitorLocators.HrValueLabel);
+    //    var match = Regex.Match(label.Name ?? string.Empty, @"\d+");
+    //    return match.Success ? int.Parse(match.Value) : -1;
+    //}
+
+    public int GetConfiguredHeartRateBpm()
     {
-        var label = WaitFor(PatientMonitorLocators.HrValueLabel);
-        var match = Regex.Match(label.Name ?? string.Empty, @"\d+");
-        return match.Success ? int.Parse(match.Value) : -1;
+        ClickBy(PatientMonitorLocators.HrValueLabel);
+
+        var dialog = WaitFor(PatientMonitorLocators.SetHeartRateDialog);
+
+        int bpm;
+
+        try
+        {
+            var currentValue = dialog.FindFirstDescendant(
+                CF.ByAutomationId(
+                    PatientMonitorLocators.HrCurrentValueText.AutomationId!))
+                ?? throw new InvalidOperationException(
+                    "Current heart-rate value was not found.");
+
+            var text = currentValue.Name?.Trim();
+
+            if (!int.TryParse(
+                    text,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out bpm))
+            {
+                throw new InvalidOperationException(
+                    $"Current heart-rate value '{text}' is not a valid number.");
+            }
+        }
+        finally
+        {
+            var cancelButton = dialog.FindFirstDescendant(
+                CF.ByName("Cancel")
+                    .And(CF.ByControlType(
+                        FlaUI.Core.Definitions.ControlType.Button)))
+                ?? throw new InvalidOperationException(
+                    "Cancel button was not found in the heart-rate dialog.");
+
+            cancelButton.Click();
+
+            WaitUntil(
+                () => RootWindow.FindFirstDescendant(
+                    CF.ByName("Set Heart Rate")) == null,
+                timeoutSeconds: 10,
+                errorMessage:
+                    "Set Heart Rate dialog remained open after clicking Cancel.");
+        }
+
+        return bpm;
     }
 
     public bool IsVoiceSelected(Locator voiceLocator)

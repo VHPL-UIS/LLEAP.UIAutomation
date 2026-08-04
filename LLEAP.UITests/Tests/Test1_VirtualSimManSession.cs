@@ -73,8 +73,9 @@ public class Test1_VirtualSimManSession : TestBase
             "Step 12 – Lung compliance should be set to approximately 67 %.");
 
         Step("13_HeartRate100", () => session.AdjustHeartRate(100));
-        //Assert.That(session.GetDisplayedHeartRateBpm(), Is.EqualTo(100),
-        //    "Step 13 – Heart rate on the patient monitor should read 100 bpm.");
+        //Assert.That(() => session.GetDisplayedHeartRateBpm(), Is.EqualTo(100).After(10).Seconds.PollEvery(200).MilliSeconds,
+        Assert.That(session.GetConfiguredHeartRateBpm(), Is.EqualTo(100),
+            "Step 13 – Heart rate on the patient monitor should read 100 bpm.");
 
         Step("14_PlayCoughingVoice",
             () => session.PlayVoice(SessionLocators.CoughingVoiceItem));
