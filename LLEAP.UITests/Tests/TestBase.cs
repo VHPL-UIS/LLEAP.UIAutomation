@@ -10,11 +10,12 @@ public abstract class TestBase
 {
     protected Serilog.ILogger Log { get; private set; } = Serilog.Log.Logger;
     protected AppDriver AppDriver { get; private set; } = null!;
-    protected SimulationHomePage SimulationHome { get; private set;} = null!;
+    protected SimulationHomePage SimulationHome { get; private set; } = null!;
 
     [SetUp]
     public void SetUp()
     {
+        ScreenshotHelper.BeginTestRun(GetType().Name, TestContext.CurrentContext.Test.Name);
         Log = Serilog.Log.Logger.ForContext(GetType());
         Log.Information("Test starting: {TestName}", TestContext.CurrentContext.Test.Name);
         AppDriver = new AppDriver();
@@ -26,25 +27,38 @@ public abstract class TestBase
     public void TearDown()
     {
         var result = TestContext.CurrentContext.Result;
-        if (result.Outcome.Status == TestStatus.Failed)
+        var finalStatus = result.Outcome.Status;
+        try
         {
-            Log.Error("Test FAILED: {TestName} - {Message}",
-                TestContext.CurrentContext.Test.Name, result.Message);
-            try
+            if (finalStatus == TestStatus.Failed)
             {
-                ScreenshotHelper.CaptureAndAttach("FAILURE_" + TestContext.CurrentContext.Test.Name);
+                Log.Error("Test FAILED: {TestName} - {Message}",
+                    TestContext.CurrentContext.Test.Name, result.Message);
+                try
+                {
+                    ScreenshotHelper.CaptureAndAttach("FAILURE_" + TestContext.CurrentContext.Test.Name);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failure screenshot could not be captured!");
+                }
             }
-            catch(Exception ex)
+            else
             {
-                Log.Warning(ex, "Failure screenshot could not be captured!");
+                Log.Information("Test passed: {TestName}",
+                    TestContext.CurrentContext.Test.Name);
             }
+            AppDriver?.Dispose();
         }
-        else
+        catch
         {
-            Log.Information("Test passed: {TestName}",
-                TestContext.CurrentContext.Test.Name);
+            finalStatus = TestStatus.Failed;
+            throw;
         }
-        AppDriver?.Dispose();
+        finally
+        {
+            ScreenshotHelper.CompleteTestRun(finalStatus);
+        }
     }
 
     protected InstructorAppPage SwitchToInstructorApp(string windowTitle = "LLEAP")
